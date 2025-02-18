@@ -1,3 +1,113 @@
+/
+     * @dev Spend `amount` form the allowance of `owner` toward `spender`.
+     *
+     * Does not update the allowance amount in case of infinite allowance.
+     * Revert if not enough allowance is available.
+     *
+     * Might emit an {Approval} event.
+     */
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(currentAllowance >= amount, "ERC20: insufficient allowance");
+        }
+        unchecked {
+            _approve(owner, spender, currentAllowance - amount);
+        }
+    }
+
+    /
+     * @dev Hook that is called before any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when from and to are both non-zero, amount of ``from``'s tokens
+     * will be transferred to to.
+     * - when from is zero, amount tokens will be minted for to.
+     * - when to is zero, amount of ``from``'s tokens will be burned.
+     * - from and to are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
+
+    /
+     * @dev Hook that is called after any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+     * has been transferred to `to`.
+     * - when `from` is zero, `amount` tokens have been minted for `to`.
+     * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
+     * - `from` and `to` are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
+}
+
+contract MSIToken is ERC20, Ownable {
+    uint8 constant DECIMAL_PLACES = 6;
+    uint256 constant PREMINT = 200000000 * (10  DECIMAL_PLACES);
+    address public _minterAccept;
+    address public fundAddress;
+    uint256 numPerBlock = 7; //Reward per block: 7 MSI
+    uint256 minutePerBlock = 2; //Block time: 2 minutes
+    uint256 bscBlockNumPerMinute = 20; //BSC block num per minute
+    uint256 lastBlock ;
+
+    constructor() ERC20 ("MSI", "MSI") {
+        _mint(_msgSender(), PREMINT);
+        fundAddress = _msgSender();
+        lastBlock = block.number;
+        _feeWhiteList[_msgSender()] = true;
+    }
+
+    function decimals() public pure override returns (uint8) {
+        return DECIMAL_PLACES;
+    }
+
+    function setMintAcceptAddress(address _acceptAdd) public onlyOwner() {
+        _minterAccept = _acceptAdd;
+    }
+
+    function setMultiFeeWhiteList(address[] calldata addr, bool enable) external onlyOwner() {
+        for (uint256 i = 0; i < addr.length; i++)
+            _feeWhiteList[addr[i]] = enable;
+    }
+
+    function claimBalance() public {
+        payable(fundAddress).transfer(address(this).balance);
+    }
+
+    function claimToken (
+        address token,
+        uint256 amount
+    )public  {
+        require(token != address(this), "Cannot Claim Native Token");
+        IERC20(token).transfer(fundAddress, amount);
+    }
+
+    function getCurrenMintNum() public view returns (uint256)  {
+        uint256 _amountBlock = (block.number - lastBlock)/ (minutePerBlock * bscBlockNumPerMinute);
+        uint256 _amount = _amountBlock * numPerBlock;
+        return _amount;
+    }
 function mint() external  {
         /*
         1. Total Minutes per Year:
